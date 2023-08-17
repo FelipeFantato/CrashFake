@@ -69,6 +69,7 @@ public class Player : MonoBehaviour
     {
         if (characterController.isGrounded)
         {
+
             currentMovement.y = Mathf.Sqrt(jumpHeight * GravityScale * -1);
         }
     }
