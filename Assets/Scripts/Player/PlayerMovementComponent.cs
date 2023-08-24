@@ -18,6 +18,8 @@ public class PlayerMovementComponent : MonoBehaviour
    
     public void MovePlayer(InputAction.CallbackContext context)
     {
+        
+
         Vector2 inputData = context.ReadValue<Vector2>();
         MoveHandler(inputData);
     }
@@ -46,7 +48,7 @@ public class PlayerMovementComponent : MonoBehaviour
         positionToLookAt.z = currentMovement.z;
         Quaternion currentRotation = transform.rotation;
 
-         if (isMoving)
+         if (PlayerManager.instance.GetIsMoving())
          {
              Quaternion targetRotation = Quaternion.LookRotation(positionToLookAt);
              transform.rotation = Quaternion.Slerp(currentRotation, targetRotation, rotationFactorPerFrame * Time.deltaTime);
