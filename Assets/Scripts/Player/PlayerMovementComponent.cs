@@ -1,75 +1,112 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class PlayerMovementComponent : MonoBehaviour
 {
     private Vector3 currentMovement;
+    private Vector3 cameraRelativeMovement;
+    private Vector2 inputData;
     private float playerVelocity;
-    private CharacterController characterController;
+    private float gravityValue = -9.81f;
     private bool isMoving;
+    private bool jumpTrigger;
+    private CharacterController characterController;
+
+    [SerializeField] private float jumpHeight = 1;
 
     private void Awake()
     {
-       characterController = GetComponent<CharacterController>();
-        playerVelocity = PlayerManager.instance.GetCurrentVelocity();
+        PlayerManager.HandleMoveInput += SetMoveInfo;
+        PlayerManager.HandleJumpInput += MakePlayerJump;
+        characterController = GetComponent<CharacterController>();
     }
-   
-    public void MovePlayer(InputAction.CallbackContext context)
-    {
-        
 
-        Vector2 inputData = context.ReadValue<Vector2>();
-        MoveHandler(inputData);
+    private void MakePlayerJump(bool inputValue)
+    {
+        jumpTrigger = inputValue;
     }
+
+    private void SetMoveInfo(InputAction.CallbackContext context, float velocity)
+    {
+        playerVelocity = velocity;
+        inputData = context.ReadValue<Vector2>();
+        isMoving = inputData.x != 0 || inputData.y != 0;
+    }
+
+    private void Update()
+    {
+        MoveHandler(inputData);
+        GravityHandler();
+        JumpHandler();
+    }
+
+    private void JumpHandler()
+    {
+        if (jumpTrigger && characterController.isGrounded)
+        {
+            currentMovement.y += Mathf.Sqrt(jumpHeight * -3.0f * gravityValue);
+        }
+    }
+
+    private void GravityHandler()
+    {
+        print(cameraRelativeMovement + " " + gravityValue *Time.deltaTime);
+
+        if(characterController.isGrounded)
+        {
+            currentMovement.y = -1;
+        }else
+        currentMovement.y += gravityValue * Time.deltaTime;
+    }
+
     private void MoveHandler(Vector2 inputData)
     {
-        
         currentMovement.x = inputData.x;
-        currentMovement.y = 0;
         currentMovement.z = inputData.y;
 
-        isMoving = inputData.x != 0 || inputData.y != 0;
-
-        PlayerManager.instance.SetIsMoving(isMoving);
-
-        characterController.Move(currentMovement * playerVelocity * Time.deltaTime);
+        cameraRelativeMovement = ConvertToCameraSpace(currentMovement);
+        characterController.Move(cameraRelativeMovement * playerVelocity * Time.deltaTime);
         RotationHandler();
-
     }
+
 
     private void RotationHandler()
     {
         float rotationFactorPerFrame = 10;
         Vector3 positionToLookAt;
-        positionToLookAt.x = currentMovement.x;
+        positionToLookAt.x = cameraRelativeMovement.x;
         positionToLookAt.y = 0f;
-        positionToLookAt.z = currentMovement.z;
+        positionToLookAt.z = cameraRelativeMovement.z;
         Quaternion currentRotation = transform.rotation;
 
-         if (PlayerManager.instance.GetIsMoving())
-         {
-             Quaternion targetRotation = Quaternion.LookRotation(positionToLookAt);
-             transform.rotation = Quaternion.Slerp(currentRotation, targetRotation, rotationFactorPerFrame * Time.deltaTime);
-         }
-    }
-
-    
-
-
-    public void OnJumpInput(InputAction.CallbackContext context)
-    {
-        // isJumping = context.ReadValueAsButton();
-        Jump();
-    }
-
-    private void Jump()
-    {
-        if (characterController.isGrounded)
+        if (isMoving)
         {
-
-            // currentMovement.y = Mathf.Sqrt(jumpHeight * GravityScale * -1);
+            Quaternion targetRotation = Quaternion.LookRotation(positionToLookAt);
+            transform.rotation = Quaternion.Slerp(currentRotation, targetRotation, rotationFactorPerFrame * Time.deltaTime);
         }
+    }
+
+    private Vector3 ConvertToCameraSpace(Vector3 vectorToRotate)
+    {
+        float currentYValue = vectorToRotate.y;
+
+        Vector3 cameraForward = Camera.main.transform.forward;
+        Vector3 cameraRight = Camera.main.transform.right;
+
+        cameraForward.y = 0;
+        cameraRight.y = 0;
+
+        Vector3 cameraForwardZproduct = cameraForward * vectorToRotate.z;
+        Vector3 cameraRightXProduct = cameraRight * vectorToRotate.x;
+
+        Vector3 directionToMovePlayer = cameraForwardZproduct + cameraRightXProduct;
+        directionToMovePlayer.y = currentYValue;
+
+        return directionToMovePlayer;
+    }
+
+    private void OnDisable()
+    {
+        PlayerManager.HandleMoveInput -= SetMoveInfo;
     }
 }

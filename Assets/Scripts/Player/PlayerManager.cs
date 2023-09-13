@@ -1,68 +1,45 @@
-using System.Collections;
-using System.Collections.Generic;
-using Unity.VisualScripting;
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class PlayerManager : MonoBehaviour
 {
-    public static PlayerManager instance;
+    public static event Action<InputAction.CallbackContext, float> HandleMoveInput;
+    public static event Action<bool> HandleJumpInput;
 
-    private CharacterController characterController;
-    private PlayerMovementComponent movementComponent;
     private Transform playerTransform;
     private bool isJumping;
     private bool isMoving;
 
-    [SerializeField] private float jumpHeight = 1;
+    [SerializeField] private float jumpHeight = 10;
     [SerializeField] private float velocity = 10;
     [SerializeField] private int lives = 1;
 
     private void Awake()
     {
-        #region Singleton
-        if (instance == null)
-        {
-            instance = this;
-        }
-        else
-        {
-           Destroy(this.gameObject);
-        }
-        #endregion
+        PlayerManagerSetUpListenerns();
+    }
 
-        movementComponent = GetComponent<PlayerMovementComponent>();
-        playerTransform = GetComponent<Transform>();
-        InputManager.onMove += MovePlayer;
+    private void PlayerManagerSetUpListenerns()
+    {
+        GameSystem.OnMoveInputContextReceived += MovePlayer;
+        GameSystem.OnJumpInputContextReceived += JumpPlayer;
+    }
 
-        characterController = GetComponent<CharacterController>();
+    private void JumpPlayer(bool isJumpPressed)
+    {
+        HandleJumpInput?.Invoke(isJumpPressed);
     }
 
     private void MovePlayer(InputAction.CallbackContext context)
     {
-       movementComponent.MovePlayer(context);
-    }
-
-    public bool GetIsMoving() { return isMoving; }
-
-    public void SetIsMoving(bool isMoving)
-    {
-        this.isMoving = isMoving;
-    }
-
-    public float GetPlayerVelocity()
-    {
-        return velocity;
-    }
-
-    public float GetCurrentVelocity()
-    {
-        return characterController.velocity.magnitude;
+        isMoving = context.ReadValue<Vector2>().x != 0 || context.ReadValue<Vector2>().y != 0;
+        HandleMoveInput?.Invoke(context, velocity);
     }
 
     private void OnDisable()
     {
-        InputManager.onMove -= MovePlayer;
+        GameSystem.OnMoveInputContextReceived -= MovePlayer;
     }
 
 }
